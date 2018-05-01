@@ -6,7 +6,8 @@ import android.widget.Toast;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.URL;
+
+import retrofit2.Call;
 
 public class IAmHereAsyncTask extends AsyncTask<String, Void, Boolean> {
 
@@ -25,33 +26,26 @@ public class IAmHereAsyncTask extends AsyncTask<String, Void, Boolean> {
      * Tato metoda sa vykonava v inom vlakne.
      *
      * @param strings tri bodky oznacuju lubovolny pocet stringov, pracuje sa s tym ako s polom.
-     *                V tomto pripade pride URL na REST.
+     *                V tomto pripade pride username.
      * @return true ak je spojenie uspesne.
      */
     @Override
     protected Boolean doInBackground(String... strings) {
-        // url vytiahnuty z parametra metody
-        String urlString = strings[0];
+        // username vytiahnuty z parametra metody
+        String username = strings[0];
 
-        // reprezentuje HTTP spojenie
-        HttpURLConnection connection = null;
         try {
-            // URL sa vytvori zo stringu ktory prisiel cez parameter
-            URL url = new URL(urlString);
-            // vytvorenie spojenia, je potrebne precastovat na HttpURLConnection
-            connection = (HttpURLConnection) url.openConnection();
-            // nastavenie prislusnej HTTP metody podla REST API
-            connection.setRequestMethod("POST");
-            // vrati true ak HTTP response code je 200, teda HTTP_OK
-            return connection.getResponseCode() == HttpURLConnection.HTTP_OK;
+            // ziskanie implementacie API interface
+            Api api = RetrofitFactory.getApi();
+            // callable object
+            Call<Void> call = api.register(username);
+            // vykonanie volania, do premennej sa vlozi navratovy kod volania
+            int code = call.execute().code();
+            // ak je kod rovny HTTP_OK cize 200
+            return code == HttpURLConnection.HTTP_OK;
         } catch (IOException e) {
             e.printStackTrace();
             return false;
-        } finally {
-            // zatvorenie spojenia
-            if (connection != null) {
-                connection.disconnect();
-            }
         }
     }
 
