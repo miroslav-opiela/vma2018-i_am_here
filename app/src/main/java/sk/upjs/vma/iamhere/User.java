@@ -4,6 +4,7 @@ import java.io.Serializable;
 
 /**
  * Entita reprezentujuca jedneho pouzivatela so svojim username.
+ * Kvôli retrofitu by mala byt Java Bean - teda serializable, prazdny verejny konstruktor, gettre a settre.
  */
 class User implements Serializable {
 

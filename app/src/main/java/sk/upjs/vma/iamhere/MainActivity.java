@@ -2,8 +2,13 @@ package sk.upjs.vma.iamhere;
 
 import android.app.Activity;
 import android.app.LoaderManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.Loader;
 import android.os.Bundle;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -40,6 +45,10 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
      */
     private SwipeRefreshLayout swipeRefreshLayout;
 
+    /**
+     * Broadcast Receiver na prijimanie sprav od servicu k aktivite.
+     */
+    private RefreshUserBroadcastReceiver refreshUserBroadcastReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,6 +68,11 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
 
         // data sa nacitavaju aj po prvom spusteni aktivity
         loadData();
+
+        refreshUserBroadcastReceiver = new RefreshUserBroadcastReceiver();
+
+        // naplanovanie opakovaneho spustania service
+        RefreshScheduler.schedule(this);
     }
 
     /**
@@ -74,6 +88,9 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         // ulozi sa obsah editText widgetu do preferences (v style key-value)
         getPreferences(Activity.MODE_PRIVATE).edit()
                 .putString("name", editText.getText().toString()).apply();
+
+        // zrusi sa pocuvanie na lokalnom broadcaste
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(refreshUserBroadcastReceiver);
     }
 
     @Override
@@ -82,6 +99,11 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         // nacita sa ulozeny obsah editTextu
         String name = getPreferences(Activity.MODE_PRIVATE).getString("name", "");
         editText.setText(name);
+
+        // zaregistruje sa pocuvanie na lokalnom broadcaste
+        IntentFilter filter = new IntentFilter(UserListService.USER_LIST_INTENT_ACTION);
+        LocalBroadcastManager manager = LocalBroadcastManager.getInstance(this);
+        manager.registerReceiver(refreshUserBroadcastReceiver, filter);
     }
 
     public void sendLogin(View view) {
@@ -91,6 +113,10 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         IAmHereAsyncTask task = new IAmHereAsyncTask(this);
         // spusti sa async task, ktory asynchronne odosle informaciu cez REST API
         task.execute(username);
+
+        // spusta sa service ktory obnovi zoznam pouzivatelov
+        Intent intent = new Intent(this, UserListService.class);
+        startService(intent);
     }
 
     @Override
@@ -126,4 +152,24 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     public void onLoaderReset(Loader<List<User>> loader) {
         listAdapter.clear();
     }
+
+    /**
+     * Broadcast receiver pocuva spravy prichadzajuce od service.
+     */
+    private class RefreshUserBroadcastReceiver extends BroadcastReceiver {
+
+        /**
+         * Pri prijati spravy, ktora obsahuje zoznam pouzivatelov sa aktualizuje adapter.
+         */
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            List<User> users =
+                    (List<User>) intent.getSerializableExtra(UserListService.USER_LIST_EXTRA);
+            MainActivity.this.listAdapter.clear();
+            MainActivity.this.listAdapter.addAll(users);
+
+
+        }
+    }
+
 }
